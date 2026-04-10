@@ -32,8 +32,12 @@
     <main class="container mx-auto p-4 md:p-8">
         <!-- Auth Section -->
         <div id="auth-section" class="max-w-md mx-auto mt-10 p-8 bg-white rounded-3xl shadow-2xl border border-indigo-50">
-            <h2 class="text-2xl font-bold text-center text-indigo-900 mb-6">Öğretmen Girişi</h2>
-            <form id="login-form" class="space-y-4">
+            <div class="flex border-b mb-6">
+                <button onclick="setAuthMode('login')" id="login-tab" class="flex-1 pb-2 text-indigo-600 border-b-2 border-indigo-600 font-bold">Giriş Yap</button>
+                <button onclick="setAuthMode('register')" id="register-tab" class="flex-1 pb-2 text-gray-400 font-bold">Kayıt Ol</button>
+            </div>
+            
+            <form id="auth-form" class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">E-posta</label>
                     <input type="email" id="email" class="w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" required>
@@ -42,7 +46,8 @@
                     <label class="block text-sm font-medium text-gray-700 mb-1">Şifre</label>
                     <input type="password" id="password" class="w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" required>
                 </div>
-                <button type="submit" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition">Giriş Yap</button>
+                <button type="submit" id="auth-submit-btn" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition">Giriş Yap</button>
+                <p id="auth-msg" class="text-center text-xs mt-4"></p>
             </form>
         </div>
 
@@ -144,11 +149,32 @@
         const supabaseKey = 'sb_publishable_JixS3C4jQ2Znrgcr3-IZPg_1MfpvdXW';
         const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
         const appId = 'matota_project_v1';
+        let authMode = 'login';
 
         window.onload = async () => {
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) showDashboard(session.user);
         };
+
+        function setAuthMode(mode) {
+            authMode = mode;
+            const loginTab = document.getElementById('login-tab');
+            const registerTab = document.getElementById('register-tab');
+            const submitBtn = document.getElementById('auth-submit-btn');
+            const msg = document.getElementById('auth-msg');
+
+            if (mode === 'login') {
+                loginTab.className = "flex-1 pb-2 text-indigo-600 border-b-2 border-indigo-600 font-bold";
+                registerTab.className = "flex-1 pb-2 text-gray-400 font-bold";
+                submitBtn.innerText = "Giriş Yap";
+                msg.innerText = "";
+            } else {
+                registerTab.className = "flex-1 pb-2 text-indigo-600 border-b-2 border-indigo-600 font-bold";
+                loginTab.className = "flex-1 pb-2 text-gray-400 font-bold";
+                submitBtn.innerText = "Kayıt Ol";
+                msg.innerText = "Not: İlk öğretmen kaydını buradan yapabilirsiniz.";
+            }
+        }
 
         async function showDashboard(user) {
             document.getElementById('auth-section').classList.add('hidden');
@@ -158,14 +184,23 @@
             loadData();
         }
 
-        document.getElementById('login-form').onsubmit = async (e) => {
+        document.getElementById('auth-form').onsubmit = async (e) => {
             e.preventDefault();
-            const { data, error } = await supabaseClient.auth.signInWithPassword({
-                email: document.getElementById('email').value,
-                password: document.getElementById('password').value
-            });
-            if (error) alert(error.message);
-            else showDashboard(data.user);
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            if (authMode === 'login') {
+                const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+                if (error) alert("Giriş hatası: " + error.message);
+                else showDashboard(data.user);
+            } else {
+                const { data, error } = await supabaseClient.auth.signUp({ email, password });
+                if (error) alert("Kayıt hatası: " + error.message);
+                else {
+                    alert("Kayıt başarılı! Giriş yapılıyor...");
+                    showDashboard(data.user);
+                }
+            }
         };
 
         async function loadData() {
