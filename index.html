@@ -13,6 +13,8 @@
         .tab-active { border-bottom: 3px solid #4f46e5; color: #4f46e5; font-weight: bold; }
         .loader { border: 3px solid #f3f3f3; border-top: 3px solid #4f46e5; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .game-card { transition: all 0.3s ease; }
+        .game-card:hover { transform: translateY(-2px); shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
     </style>
 </head>
 <body class="min-h-screen">
@@ -47,43 +49,58 @@
                     <input type="password" id="password" class="w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" required>
                 </div>
                 <button type="submit" id="auth-submit-btn" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition">Giriş Yap</button>
-                <p id="auth-msg" class="text-center text-xs mt-4"></p>
             </form>
         </div>
 
         <!-- Dashboard Section -->
         <div id="dashboard" class="hidden space-y-6">
-            <div class="flex gap-8 border-b mb-6">
-                <button onclick="switchTab('games')" id="tab-games" class="pb-2 px-4 tab-active transition">Oyun Yönetimi</button>
-                <button onclick="switchTab('students')" id="tab-students" class="pb-2 px-4 text-gray-500 transition">Öğrenci Kaydı</button>
+            <!-- Tabs -->
+            <div class="flex gap-4 md:gap-8 border-b mb-6 overflow-x-auto">
+                <button onclick="switchTab('games')" id="tab-games" class="pb-2 px-4 tab-active transition whitespace-nowrap">Oyun Yönetimi</button>
+                <button onclick="switchTab('categories')" id="tab-categories" class="pb-2 px-4 text-gray-500 transition whitespace-nowrap">Kategoriler</button>
+                <button onclick="switchTab('students')" id="tab-students" class="pb-2 px-4 text-gray-500 transition whitespace-nowrap">Öğrenci Kaydı</button>
             </div>
 
+            <!-- Games Tab Content -->
             <div id="games-content" class="space-y-6">
-                <div class="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
                     <div>
-                        <h2 class="text-2xl font-bold text-slate-800">Oyunlar</h2>
-                        <p class="text-slate-500">Öğrencilerin göreceği modülleri buradan yönetin.</p>
+                        <h2 class="text-2xl font-bold text-slate-800">Oyun Modülleri</h2>
+                        <p class="text-slate-500 text-sm">Oyunların sırasını oklar yardımıyla değiştirebilirsiniz.</p>
                     </div>
-                    <button onclick="openGameModal()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold shadow-md transition">
+                    <button onclick="openGameModal()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold shadow-md transition w-full md:w-auto">
                         <i class="fas fa-plus mr-2"></i> Yeni Oyun Ekle
                     </button>
                 </div>
                 <div id="games-grid" class="grid md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
             </div>
 
+            <!-- Categories Tab Content -->
+            <div id="categories-content" class="hidden space-y-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <h2 class="text-2xl font-bold text-slate-800 mb-4">Kategori Yönetimi</h2>
+                    <div class="flex gap-3">
+                        <input type="text" id="new-category-name" class="flex-grow p-3 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Yeni kategori adı (örn: Geometri)">
+                        <button onclick="addCategory()" class="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 transition">Ekle</button>
+                    </div>
+                </div>
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4" id="categories-list"></div>
+            </div>
+
+            <!-- Students Tab Content -->
             <div id="students-content" class="hidden space-y-6">
                 <div class="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border-l-8 border-indigo-500">
                     <div>
                         <h2 class="text-2xl font-bold text-slate-800">Öğrenci Listesi</h2>
-                        <p class="text-slate-500">Sisteme giriş yapabilecek öğrencileri kaydedin.</p>
+                        <p class="text-slate-500">Öğrencilere giriş şifrelerini buradan tanımlayın.</p>
                     </div>
                     <button onclick="openStudentModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold shadow-md transition">
-                        <i class="fas fa-user-plus mr-2"></i> Yeni Öğrenci Kaydet
+                        <i class="fas fa-user-plus mr-2"></i> Yeni Öğrenci
                     </button>
                 </div>
-                <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+                <div class="bg-white rounded-2xl shadow-sm overflow-hidden border">
                     <table class="w-full text-left">
-                        <thead class="bg-gray-50 text-gray-600 text-sm uppercase">
+                        <thead class="bg-gray-50 text-gray-600 text-xs uppercase tracking-wider">
                             <tr>
                                 <th class="p-4">E-posta</th>
                                 <th class="p-4">Şifre</th>
@@ -101,16 +118,30 @@
     <div id="game-modal" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center p-4 z-50">
         <div class="bg-white w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden">
             <div class="p-6 bg-indigo-50 border-b flex justify-between items-center">
-                <h3 id="game-modal-title" class="text-xl font-bold text-indigo-900">Yeni Oyun Modülü</h3>
+                <h3 id="game-modal-title" class="text-xl font-bold text-indigo-900">Oyun Detayları</h3>
                 <button onclick="closeGameModal()" class="text-gray-400 hover:text-red-500 transition"><i class="fas fa-times text-xl"></i></button>
             </div>
             <form id="add-game-form" class="p-6 space-y-4">
                 <input type="hidden" id="editing-game-id">
-                <input type="text" id="game-title" class="w-full p-3 border rounded-xl outline-none" placeholder="Oyun Başlığı" required>
-                <textarea id="game-html" rows="10" class="w-full p-3 border rounded-xl font-mono text-sm outline-none bg-slate-50" placeholder="<html>...</html>" required></textarea>
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold mb-1">Oyun Başlığı</label>
+                        <input type="text" id="game-title" class="w-full p-3 border rounded-xl outline-none" placeholder="Oyun Adı" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-1">Kategori</label>
+                        <select id="game-category" class="w-full p-3 border rounded-xl outline-none">
+                            <option value="">Kategori Seçin</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-1">HTML Kodu</label>
+                    <textarea id="game-html" rows="8" class="w-full p-3 border rounded-xl font-mono text-xs outline-none bg-slate-50" placeholder="<html>...</html>" required></textarea>
+                </div>
                 <div class="flex gap-4">
                     <button type="button" onclick="closeGameModal()" class="flex-1 py-3 border rounded-xl text-gray-600">İptal</button>
-                    <button type="submit" id="game-save-btn" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold">Kaydet</button>
+                    <button type="submit" id="game-save-btn" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg">Değişiklikleri Kaydet</button>
                 </div>
             </form>
         </div>
@@ -120,16 +151,13 @@
     <div id="student-modal" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center p-4 z-50">
         <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden">
             <div class="p-6 bg-indigo-50 border-b flex justify-between items-center">
-                <h3 class="text-xl font-bold text-indigo-900">Öğrenci Hesabı Oluştur</h3>
+                <h3 class="text-xl font-bold text-indigo-900">Yeni Öğrenci</h3>
                 <button onclick="closeStudentModal()" class="text-gray-400 hover:text-red-500 transition"><i class="fas fa-times text-xl"></i></button>
             </div>
             <form id="add-student-form" class="p-6 space-y-4">
                 <input type="email" id="student-email" class="w-full p-3 border rounded-xl outline-none" placeholder="Öğrenci E-postası" required>
-                <input type="text" id="student-pass" class="w-full p-3 border rounded-xl outline-none" placeholder="Şifre" required>
-                <div class="flex gap-4 pt-2">
-                    <button type="button" onclick="closeStudentModal()" class="flex-1 py-3 border rounded-xl text-gray-600">Vazgeç</button>
-                    <button type="submit" class="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-bold">Kaydet</button>
-                </div>
+                <input type="text" id="student-pass" class="w-full p-3 border rounded-xl outline-none" placeholder="Giriş Şifresi" required>
+                <button type="submit" class="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold shadow-md">Kaydet</button>
             </form>
         </div>
     </div>
@@ -140,6 +168,7 @@
         const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
         const appId = 'matota_project_v1';
         let authMode = 'login';
+        let globalData = { games: [], students: [], categories: [] };
 
         window.onload = async () => {
             const { data: { session } } = await supabaseClient.auth.getSession();
@@ -172,42 +201,119 @@
         };
 
         async function loadData() {
-            const { data } = await supabaseClient.from('artifacts').select('data').eq('id', appId).single();
-            const allData = data?.data || { games: [], students: [] };
-            renderGames(allData.games || []);
-            renderStudents(allData.students || []);
+            const { data, error } = await supabaseClient.from('artifacts').select('data').eq('id', appId).single();
+            globalData = data?.data || { games: [], students: [], categories: [] };
+            if (!globalData.categories) globalData.categories = [];
+            
+            renderGames();
+            renderStudents();
+            renderCategories();
+            updateCategoryDropdown();
         }
 
-        function renderGames(games) {
+        function renderGames() {
             const grid = document.getElementById('games-grid');
-            grid.innerHTML = games.length ? '' : '<p class="col-span-full text-center py-10 text-gray-400">Oyun bulunamadı.</p>';
-            games.forEach(game => {
+            grid.innerHTML = globalData.games.length ? '' : '<p class="col-span-full text-center py-10 text-gray-400 italic">Henüz oyun eklenmemiş.</p>';
+            
+            globalData.games.forEach((game, index) => {
                 const div = document.createElement('div');
-                div.className = "bg-white p-6 rounded-2xl shadow-sm border flex flex-col justify-between";
+                div.className = "bg-white p-6 rounded-2xl shadow-sm border border-slate-100 game-card flex flex-col justify-between h-full";
                 div.innerHTML = `
-                    <div class="mb-4">
-                        <div class="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center mb-3"><i class="fas fa-puzzle-piece"></i></div>
-                        <h4 class="font-bold text-lg">${game.title}</h4>
+                    <div>
+                        <div class="flex justify-between items-start mb-4">
+                            <div class="flex gap-2">
+                                <span class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold">${game.category || 'Genel'}</span>
+                                <span class="bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-xs font-bold">#${index + 1}</span>
+                            </div>
+                            <div class="flex gap-1">
+                                <button onclick="moveGame(${index}, -1)" class="p-2 text-slate-400 hover:text-indigo-600 transition" title="Yukarı Taşı"><i class="fas fa-chevron-up"></i></button>
+                                <button onclick="moveGame(${index}, 1)" class="p-2 text-slate-400 hover:text-indigo-600 transition" title="Aşağı Taşı"><i class="fas fa-chevron-down"></i></button>
+                            </div>
+                        </div>
+                        <h4 class="font-bold text-lg mb-4 text-slate-800">${game.title}</h4>
                     </div>
-                    <div class="flex justify-between items-center gap-2">
-                         <button onclick="editGame('${game.id}')" class="bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-indigo-100">Düzenle</button>
-                         <button onclick="deleteItem('${game.id}', 'games')" class="text-red-400 hover:text-red-600"><i class="fas fa-trash"></i></button>
+                    <div class="flex justify-between items-center pt-4 border-t border-slate-50">
+                         <button onclick="editGame('${game.id}')" class="text-indigo-600 font-bold hover:underline text-sm"><i class="fas fa-edit mr-1"></i> Düzenle</button>
+                         <button onclick="deleteItem('${game.id}', 'games')" class="text-red-400 hover:text-red-600 transition p-2"><i class="fas fa-trash-alt"></i></button>
                     </div>
                 `;
                 grid.appendChild(div);
             });
         }
 
-        function renderStudents(students) {
+        async function moveGame(index, direction) {
+            const newIndex = index + direction;
+            if (newIndex < 0 || newIndex >= globalData.games.length) return;
+            
+            // Elemanları yer değiştir
+            const temp = globalData.games[index];
+            globalData.games[index] = globalData.games[newIndex];
+            globalData.games[newIndex] = temp;
+            
+            await saveData();
+            renderGames();
+        }
+
+        function renderCategories() {
+            const list = document.getElementById('categories-list');
+            list.innerHTML = globalData.categories.length ? '' : '<p class="col-span-full text-center text-gray-400 italic">Kategori bulunamadı.</p>';
+            
+            globalData.categories.forEach(cat => {
+                const div = document.createElement('div');
+                div.className = "bg-white p-4 rounded-xl border flex justify-between items-center shadow-sm";
+                div.innerHTML = `
+                    <span class="font-bold text-slate-700">${cat}</span>
+                    <button onclick="deleteCategory('${cat}')" class="text-red-300 hover:text-red-600"><i class="fas fa-times"></i></button>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function updateCategoryDropdown() {
+            const select = document.getElementById('game-category');
+            select.innerHTML = '<option value="">Kategori Seçin</option>';
+            globalData.categories.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat;
+                opt.innerText = cat;
+                select.appendChild(opt);
+            });
+        }
+
+        async function addCategory() {
+            const input = document.getElementById('new-category-name');
+            const name = input.value.trim();
+            if (!name) return;
+            if (globalData.categories.includes(name)) {
+                alert("Bu kategori zaten mevcut.");
+                return;
+            }
+            
+            globalData.categories.push(name);
+            input.value = "";
+            await saveData();
+            renderCategories();
+            updateCategoryDropdown();
+        }
+
+        async function deleteCategory(name) {
+            if (!confirm(`"${name}" kategorisini silmek istediğinize emin misiniz? Oyunlar silinmez ancak kategorisiz kalır.`)) return;
+            globalData.categories = globalData.categories.filter(c => c !== name);
+            await saveData();
+            renderCategories();
+            updateCategoryDropdown();
+        }
+
+        function renderStudents() {
             const list = document.getElementById('students-list');
-            list.innerHTML = students.length ? '' : '<tr><td colspan="3" class="p-10 text-center text-gray-400">Öğrenci yok.</td></tr>';
-            students.forEach(s => {
+            list.innerHTML = globalData.students.length ? '' : '<tr><td colspan="3" class="p-10 text-center text-gray-400">Henüz öğrenci kaydı yok.</td></tr>';
+            globalData.students.forEach(s => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td class="p-4 font-medium">${s.email}</td>
-                    <td class="p-4 font-mono text-sm">${s.password}</td>
+                    <td class="p-4 font-medium text-slate-700">${s.email}</td>
+                    <td class="p-4 font-mono text-sm text-slate-500">${s.password}</td>
                     <td class="p-4 text-right">
-                        <button onclick="deleteItem('${s.id}', 'students')" class="text-red-400 hover:text-red-600"><i class="fas fa-user-minus"></i></button>
+                        <button onclick="deleteItem('${s.id}', 'students')" class="text-red-300 hover:text-red-600 transition"><i class="fas fa-trash"></i></button>
                     </td>
                 `;
                 list.appendChild(tr);
@@ -215,15 +321,13 @@
         }
 
         async function editGame(id) {
-            const { data } = await supabaseClient.from('artifacts').select('data').eq('id', appId).single();
-            const game = data.data.games.find(g => g.id === id);
+            const game = globalData.games.find(g => g.id === id);
             if (!game) return;
-
             document.getElementById('editing-game-id').value = game.id;
             document.getElementById('game-title').value = game.title;
+            document.getElementById('game-category').value = game.category || "";
             document.getElementById('game-html').value = game.html;
             document.getElementById('game-modal-title').innerText = "Oyunu Düzenle";
-            document.getElementById('game-save-btn').innerText = "Değişiklikleri Kaydet";
             openGameModal();
         }
 
@@ -231,55 +335,47 @@
             e.preventDefault();
             const id = document.getElementById('editing-game-id').value;
             const title = document.getElementById('game-title').value;
+            const category = document.getElementById('game-category').value;
             const html = document.getElementById('game-html').value;
 
-            const { data: current } = await supabaseClient.from('artifacts').select('data').eq('id', appId).single();
-            const allData = current?.data || { games: [], students: [] };
-            
             if (id) {
-                // Düzenleme modu
-                const index = allData.games.findIndex(g => g.id === id);
-                if (index !== -1) {
-                    allData.games[index] = { ...allData.games[index], title, html, updatedAt: new Date() };
-                }
+                const index = globalData.games.findIndex(g => g.id === id);
+                if (index !== -1) globalData.games[index] = { ...globalData.games[index], title, category, html, updatedAt: new Date() };
             } else {
-                // Yeni ekleme modu
-                allData.games.unshift({ id: crypto.randomUUID(), title, html, createdAt: new Date() });
+                globalData.games.unshift({ id: crypto.randomUUID(), title, category, html, createdAt: new Date() });
             }
 
-            await supabaseClient.from('artifacts').upsert({ id: appId, data: allData });
+            await saveData();
             closeGameModal();
-            loadData();
+            renderGames();
         };
 
         document.getElementById('add-student-form').onsubmit = async (e) => {
             e.preventDefault();
             const email = document.getElementById('student-email').value;
             const password = document.getElementById('student-pass').value;
-            
-            const { data: current } = await supabaseClient.from('artifacts').select('data').eq('id', appId).single();
-            const allData = current?.data || { games: [], students: [] };
-            allData.students.unshift({ id: crypto.randomUUID(), email, password, createdAt: new Date() });
-            
-            await supabaseClient.from('artifacts').upsert({ id: appId, data: allData });
+            globalData.students.unshift({ id: crypto.randomUUID(), email, password, createdAt: new Date() });
+            await saveData();
             closeStudentModal();
-            loadData();
+            renderStudents();
         };
 
         async function deleteItem(id, key) {
             if(!confirm("Emin misiniz?")) return;
-            const { data: current } = await supabaseClient.from('artifacts').select('data').eq('id', appId).single();
-            const allData = current.data;
-            allData[key] = allData[key].filter(item => item.id !== id);
-            await supabaseClient.from('artifacts').upsert({ id: appId, data: allData });
-            loadData();
+            globalData[key] = globalData[key].filter(item => item.id !== id);
+            await saveData();
+            if(key === 'games') renderGames(); else renderStudents();
+        }
+
+        async function saveData() {
+            await supabaseClient.from('artifacts').upsert({ id: appId, data: globalData });
         }
 
         function switchTab(tab) {
-            document.getElementById('games-content').classList.toggle('hidden', tab !== 'games');
-            document.getElementById('students-content').classList.toggle('hidden', tab !== 'students');
-            document.getElementById('tab-games').className = tab === 'games' ? 'pb-2 px-4 tab-active' : 'pb-2 px-4 text-gray-500';
-            document.getElementById('tab-students').className = tab === 'students' ? 'pb-2 px-4 tab-active' : 'pb-2 px-4 text-gray-500';
+            ['games', 'categories', 'students'].forEach(t => {
+                document.getElementById(`${t}-content`).classList.toggle('hidden', t !== tab);
+                document.getElementById(`tab-${t}`).className = t === tab ? 'pb-2 px-4 tab-active' : 'pb-2 px-4 text-gray-500';
+            });
         }
 
         function openGameModal() { document.getElementById('game-modal').classList.remove('hidden'); }
@@ -288,7 +384,6 @@
             document.getElementById('add-game-form').reset();
             document.getElementById('editing-game-id').value = "";
             document.getElementById('game-modal-title').innerText = "Yeni Oyun Modülü";
-            document.getElementById('game-save-btn').innerText = "Kaydet";
         }
         function openStudentModal() { document.getElementById('student-modal').classList.remove('hidden'); }
         function closeStudentModal() { document.getElementById('student-modal').classList.add('hidden'); document.getElementById('add-student-form').reset(); }
