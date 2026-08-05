@@ -109,7 +109,7 @@
                         <h2 class="text-2xl font-bold text-slate-800">Öğrenci Listesi</h2>
                         <p class="text-slate-500">Öğrencilere giriş şifrelerini buradan tanımlayın.</p>
                     </div>
-                    <button onclick="openStudentModal()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold shadow-md transition w-full md:w-auto">
+                    <button onclick="openNewStudentModal()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold shadow-md transition w-full md:w-auto">
                         <i class="fas fa-user-plus mr-2"></i> Yeni Öğrenci
                     </button>
                 </div>
@@ -165,7 +165,7 @@
     <!-- Modal: Öğrenci Kaydı -->
     <div id="student-modal" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center p-4 z-50">
         <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden">
-            <div class="p-6 bg-indigo-50 border-b flex justify-between items-center">
+            <div id="student-modal-header" class="p-6 bg-indigo-50 border-b flex justify-between items-center">
                 <h3 class="text-xl font-bold text-indigo-900">Yeni Öğrenci</h3>
                 <button onclick="closeStudentModal()" class="text-gray-400 hover:text-red-500 transition"><i class="fas fa-times text-xl"></i></button>
             </div>
@@ -537,6 +537,7 @@
             document.getElementById('student-email').value = student.email;
             document.getElementById('student-pass').value = student.password;
             populateStudentCategoryChecklist(student.allowedCategories || []);
+            document.getElementById('student-modal-header').querySelector('h3').innerText = "Öğrenciyi Düzenle";
             openStudentModal();
         }
 
@@ -621,6 +622,12 @@
             document.getElementById('add-game-form').reset();
             document.getElementById('editing-game-id').value = "";
             document.getElementById('game-modal-title').innerText = "Yeni Oyun Modülü";
+        }
+        function openNewStudentModal() {
+            document.getElementById('add-student-form').reset();
+            document.getElementById('editing-student-id').value = "";
+            document.getElementById('student-modal-header').querySelector('h3').innerText = "Yeni Öğrenci";
+            openStudentModal();
         }
         function openStudentModal() { 
             populateStudentCategoryChecklist();
