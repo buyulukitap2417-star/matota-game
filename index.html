@@ -15,6 +15,11 @@
         .loader { border: 3px solid #f3f3f3; border-top: 3px solid #4f46e5; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .game-card { transition: all 0.3s ease; cursor: grab; }
+        #progress-bar {
+            transition: width 0.3s ease;
+            height: 3px;
+            background-color: #4f46e5;
+        }
         .game-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); cursor: move; }
         .sortable-ghost { opacity: 0.4; background: #c7d2fe; }
     </style>
@@ -22,6 +27,11 @@
 <body class="min-h-screen">
 
     <nav class="bg-indigo-700 text-white p-4 shadow-xl">
+        <!-- Progress Bar -->
+        <div class="fixed top-0 left-0 w-full z-[100]">
+            <div id="progress-bar" class="w-0"></div>
+        </div>
+
         <div class="container mx-auto flex justify-between items-center">
             <h1 class="text-xl font-bold flex items-center">
                 <i class="fas fa-chalkboard-teacher mr-3"></i> MATOTA Öğretmen Paneli
@@ -82,11 +92,11 @@
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
                     <h2 class="text-2xl font-bold text-slate-800 mb-4">Kategori Yönetimi</h2>
                     <div class="flex gap-3">
-                        <input type="text" id="new-category-name" class="flex-grow p-3 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Kategori Adı (örn: Matematik > Sayılar)">
-                        <button onclick="addCategory()" class="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 transition">Ekle</button>
+                        <input type="text" id="new-category-name" class="flex-grow p-3 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Yeni ana kategori adı...">
+                        <button onclick="addCategory(null)" class="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 transition">Ana Kategori Ekle</button>
                     </div>
                 </div>
-                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4" id="categories-list"></div>
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100" id="categories-list"></div>
             </div>
 
             <!-- Students Tab Content -->
@@ -310,21 +320,65 @@
 
         function renderCategories() {
             const list = document.getElementById('categories-list');
-            list.innerHTML = globalData.categories.length ? '' : '<p class="col-span-full text-center text-gray-400 italic">Kategori bulunamadı.</p>';
-            
-            globalData.categories.forEach(cat => {
-                const div = document.createElement('div');
-                const isSubCategory = cat.includes('>');
-                const padding = isSubCategory ? 'pl-8' : '';
-                const displayName = isSubCategory ? cat.split('>')[1].trim() : cat;
-                const icon = isSubCategory ? '<i class="fas fa-level-up-alt fa-rotate-90 mr-2 text-slate-400"></i>' : '';
-                div.className = "bg-white p-4 rounded-xl border flex justify-between items-center shadow-sm";
-                div.innerHTML = `
-                    <span class="font-bold text-slate-700 ${padding}">${icon}${displayName}</span>
-                    <button onclick="deleteCategory('${cat}')" class="text-red-300 hover:text-red-600"><i class="fas fa-times"></i></button>
-                `;
-                list.appendChild(div);
+            list.innerHTML = '';
+            const categoryTree = buildCategoryTree(globalData.categories);
+
+            if (Object.keys(categoryTree).length === 0) {
+                list.innerHTML = '<p class="text-center text-gray-400 italic">Henüz kategori eklenmemiş.</p>';
+                return;
+            }
+
+            Object.keys(categoryTree).sort().forEach(mainCat => {
+                list.appendChild(createCategoryNode(mainCat, categoryTree[mainCat], 0));
             });
+        }
+
+        function createCategoryNode(name, children, level) {
+            const node = document.createElement('div');
+            const fullName = name;
+            const displayName = name.split('>').pop().trim();
+            node.className = `p-3 rounded-lg hover:bg-slate-50 ${level > 0 ? 'ml-8 border-l-2' : ''}`;
+            node.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <span class="font-semibold text-slate-800">${displayName}</span>
+                    <div class="flex items-center gap-2">
+                        <button onclick="promptAddSubCategory('${fullName}')" class="text-emerald-500 hover:text-emerald-700 w-6 h-6 rounded-full flex items-center justify-center" title="Alt Kategori Ekle"><i class="fas fa-plus"></i></button>
+                        <button onclick="deleteCategory('${fullName}')" class="text-red-400 hover:text-red-600 w-6 h-6 rounded-full flex items-center justify-center" title="Kategoriyi Sil"><i class="fas fa-times"></i></button>
+                    </div>
+                </div>
+            `;
+            if (children && Object.keys(children).length > 0) {
+                const childrenContainer = document.createElement('div');
+                childrenContainer.className = 'mt-2';
+                Object.keys(children).sort().forEach(childKey => {
+                    const fullChildName = `${name} > ${childKey}`;
+                    childrenContainer.appendChild(createCategoryNode(fullChildName, children[childKey], level + 1));
+                });
+                node.appendChild(childrenContainer);
+            }
+            return node;
+        }
+
+        function promptAddSubCategory(parentCategory) {
+            const subCategoryName = prompt(`'${parentCategory}' için yeni alt kategori adı:`);
+            if (subCategoryName && subCategoryName.trim()) {
+                addCategory(parentCategory, subCategoryName.trim());
+            }
+        }
+
+        function buildCategoryTree(categories) {
+            const tree = {};
+            categories.sort().forEach(cat => {
+                const parts = cat.split('>').map(p => p.trim());
+                let currentLevel = tree;
+                parts.forEach(part => {
+                    if (!currentLevel[part]) {
+                        currentLevel[part] = {};
+                    }
+                    currentLevel = currentLevel[part];
+                `;
+            });
+            return tree;
         }
 
         function updateCategoryDropdown() {
@@ -338,9 +392,16 @@
             });
         }
 
-        async function addCategory() {
-            const input = document.getElementById('new-category-name');
-            const name = input.value.trim();
+        async function addCategory(parent, newPart = null) {
+            let name;
+            if (parent && newPart) {
+                name = `${parent} > ${newPart}`;
+            } else {
+                const input = document.getElementById('new-category-name');
+                name = input.value.trim();
+                input.value = "";
+            }
+
             if (!name) return;
             if (globalData.categories.includes(name)) {
                 alert("Bu kategori zaten mevcut.");
@@ -348,8 +409,6 @@
             }
             
             globalData.categories.push(name);
-            globalData.categories.sort();
-            input.value = "";
             await saveData();
             renderCategories();
             updateCategoryDropdown();
@@ -357,7 +416,12 @@
 
         async function deleteCategory(name) {
             if (!confirm(`"${name}" kategorisini silmek istediğinize emin misiniz? Oyunlar silinmez ancak kategorisiz kalır.`)) return;
-            globalData.categories = globalData.categories.filter(c => c !== name);
+            
+            // Kategori ve tüm alt kategorilerini sil
+            globalData.categories = globalData.categories.filter(c => c !== name && !c.startsWith(name + ' > '));
+            // Bu kategoriye bağlı oyunları "Genel"e taşı
+            globalData.games.forEach(game => { if (game.category === name) game.category = 'Genel'; });
+
             await saveData();
             renderCategories();
             updateCategoryDropdown();
@@ -474,7 +538,15 @@
         }
 
         async function saveData() {
+            const progressBar = document.getElementById('progress-bar');
+            progressBar.style.width = '30%';
+            try {
             await supabaseClient.from('artifacts').upsert({ id: appId, data: globalData });
+                progressBar.style.width = '100%';
+                setTimeout(() => { progressBar.style.width = '0%'; }, 500);
+            } catch (error) {
+                progressBar.style.backgroundColor = '#ef4444'; // Red for error
+            }
         }
 
         function switchTab(tab) {
@@ -496,6 +568,8 @@
         function openStudentModal() { 
             populateStudentCategoryChecklist();
             document.getElementById('student-modal').classList.remove('hidden'); 
+            document.getElementById('editing-student-id').value = "";
+            document.getElementById('add-student-form').reset();
         }
         function closeStudentModal() { 
             document.getElementById('student-modal').classList.add('hidden'); 
