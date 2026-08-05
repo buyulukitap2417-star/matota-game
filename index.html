@@ -6,6 +6,7 @@
     <title>MATOTA - Öğretmen Yönetim Paneli</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap');
@@ -13,8 +14,9 @@
         .tab-active { border-bottom: 3px solid #4f46e5; color: #4f46e5; font-weight: bold; }
         .loader { border: 3px solid #f3f3f3; border-top: 3px solid #4f46e5; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .game-card { transition: all 0.3s ease; }
-        .game-card:hover { transform: translateY(-2px); shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        .game-card { transition: all 0.3s ease; cursor: grab; }
+        .game-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
+        .sortable-ghost { opacity: 0.4; background: #c7d2fe; }
     </style>
 </head>
 <body class="min-h-screen">
@@ -98,7 +100,7 @@
                         <i class="fas fa-user-plus mr-2"></i> Yeni Öğrenci
                     </button>
                 </div>
-                <div class="bg-white rounded-2xl shadow-sm overflow-hidden border">
+                <div class="bg-white rounded-2xl shadow-sm overflow-x-auto border">
                     <table class="w-full text-left">
                         <thead class="bg-gray-50 text-gray-600 text-xs uppercase tracking-wider">
                             <tr>
@@ -154,9 +156,16 @@
                 <h3 class="text-xl font-bold text-indigo-900">Yeni Öğrenci</h3>
                 <button onclick="closeStudentModal()" class="text-gray-400 hover:text-red-500 transition"><i class="fas fa-times text-xl"></i></button>
             </div>
-            <form id="add-student-form" class="p-6 space-y-4">
+            <form id="add-student-form" class="p-8 space-y-6">
+                <input type="hidden" id="editing-student-id">
                 <input type="email" id="student-email" class="w-full p-3 border rounded-xl outline-none" placeholder="Öğrenci E-postası" required>
                 <input type="text" id="student-pass" class="w-full p-3 border rounded-xl outline-none" placeholder="Giriş Şifresi" required>
+                <div>
+                    <label class="block text-sm font-semibold mb-2 text-slate-700">Erişebileceği Kategoriler</label>
+                    <div id="student-categories-checklist" class="space-y-2 max-h-40 overflow-y-auto p-3 bg-slate-50 rounded-lg">
+                        <!-- Kategoriler buraya dinamik olarak eklenecek -->
+                    </div>
+                </div>
                 <button type="submit" class="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold shadow-md">Kaydet</button>
             </form>
         </div>
@@ -169,6 +178,7 @@
         const appId = 'matota_project_v1';
         let authMode = 'login';
         let globalData = { games: [], students: [], categories: [] };
+        let sortable = null;
 
         window.onload = async () => {
             const { data: { session } } = await supabaseClient.auth.getSession();
@@ -209,49 +219,48 @@
             renderStudents();
             renderCategories();
             updateCategoryDropdown();
+            initSortable();
         }
 
         function renderGames() {
             const grid = document.getElementById('games-grid');
             grid.innerHTML = globalData.games.length ? '' : '<p class="col-span-full text-center py-10 text-gray-400 italic">Henüz oyun eklenmemiş.</p>';
             
-            globalData.games.forEach((game, index) => {
+            globalData.games.forEach(game => {
                 const div = document.createElement('div');
-                div.className = "bg-white p-6 rounded-2xl shadow-sm border border-slate-100 game-card flex flex-col justify-between h-full";
+                div.className = "game-card bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between h-full";
+                div.dataset.id = game.id;
                 div.innerHTML = `
                     <div>
                         <div class="flex justify-between items-start mb-4">
-                            <div class="flex gap-2">
+                            <div class="flex items-center gap-2">
+                                <i class="fas fa-grip-vertical text-slate-300"></i>
                                 <span class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold">${game.category || 'Genel'}</span>
-                                <span class="bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-xs font-bold">#${index + 1}</span>
-                            </div>
-                            <div class="flex gap-1">
-                                <button onclick="moveGame(${index}, -1)" class="p-2 text-slate-400 hover:text-indigo-600 transition" title="Yukarı Taşı"><i class="fas fa-chevron-up"></i></button>
-                                <button onclick="moveGame(${index}, 1)" class="p-2 text-slate-400 hover:text-indigo-600 transition" title="Aşağı Taşı"><i class="fas fa-chevron-down"></i></button>
                             </div>
                         </div>
                         <h4 class="font-bold text-lg mb-4 text-slate-800">${game.title}</h4>
                     </div>
                     <div class="flex justify-between items-center pt-4 border-t border-slate-50">
-                         <button onclick="editGame('${game.id}')" class="text-indigo-600 font-bold hover:underline text-sm"><i class="fas fa-edit mr-1"></i> Düzenle</button>
-                         <button onclick="deleteItem('${game.id}', 'games')" class="text-red-400 hover:text-red-600 transition p-2"><i class="fas fa-trash-alt"></i></button>
+                         <button onclick="editGame(event, '${game.id}')" class="text-indigo-600 font-bold hover:underline text-sm"><i class="fas fa-edit mr-1"></i> Düzenle</button>
+                         <button onclick="deleteItem(event, '${game.id}', 'games')" class="text-red-400 hover:text-red-600 transition p-2"><i class="fas fa-trash-alt"></i></button>
                     </div>
                 `;
                 grid.appendChild(div);
             });
         }
 
-        async function moveGame(index, direction) {
-            const newIndex = index + direction;
-            if (newIndex < 0 || newIndex >= globalData.games.length) return;
-            
-            // Elemanları yer değiştir
-            const temp = globalData.games[index];
-            globalData.games[index] = globalData.games[newIndex];
-            globalData.games[newIndex] = temp;
-            
-            await saveData();
-            renderGames();
+        function initSortable() {
+            const grid = document.getElementById('games-grid');
+            if (sortable) sortable.destroy();
+            sortable = new Sortable(grid, {
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                onEnd: async (evt) => {
+                    const newOrder = Array.from(evt.to.children).map(item => item.dataset.id);
+                    globalData.games.sort((a, b) => newOrder.indexOf(a.id) - newOrder.indexOf(b.id));
+                    await saveData();
+                }
+            });
         }
 
         function renderCategories() {
@@ -309,18 +318,43 @@
             list.innerHTML = globalData.students.length ? '' : '<tr><td colspan="3" class="p-10 text-center text-gray-400">Henüz öğrenci kaydı yok.</td></tr>';
             globalData.students.forEach(s => {
                 const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50";
+                const allowed = s.allowedCategories && s.allowedCategories.length > 0 ? s.allowedCategories.join(', ') : 'Tümü';
                 tr.innerHTML = `
-                    <td class="p-4 font-medium text-slate-700">${s.email}</td>
+                    <td class="p-4 font-medium text-slate-700">
+                        ${s.email}
+                        <p class="text-xs text-indigo-500 font-normal">${allowed}</p>
+                    </td>
                     <td class="p-4 font-mono text-sm text-slate-500">${s.password}</td>
                     <td class="p-4 text-right">
-                        <button onclick="deleteItem('${s.id}', 'students')" class="text-red-300 hover:text-red-600 transition"><i class="fas fa-trash"></i></button>
+                        <button onclick="editStudent('${s.id}')" class="text-indigo-500 hover:text-indigo-700 transition mr-2"><i class="fas fa-edit"></i></button>
+                        <button onclick="deleteItem(event, '${s.id}', 'students')" class="text-red-400 hover:text-red-600 transition"><i class="fas fa-trash"></i></button>
                     </td>
                 `;
                 list.appendChild(tr);
             });
         }
 
-        async function editGame(id) {
+        function populateStudentCategoryChecklist(selectedCategories = []) {
+            const container = document.getElementById('student-categories-checklist');
+            container.innerHTML = '';
+            if (globalData.categories.length === 0) {
+                container.innerHTML = '<p class="text-sm text-slate-400 italic">Önce kategori eklemelisiniz.</p>';
+                return;
+            }
+            globalData.categories.forEach(cat => {
+                const isChecked = selectedCategories.includes(cat);
+                container.innerHTML += `
+                    <label class="flex items-center gap-2 p-2 rounded-md hover:bg-slate-100 cursor-pointer">
+                        <input type="checkbox" value="${cat}" class="student-category-check" ${isChecked ? 'checked' : ''}>
+                        <span class="text-sm font-medium text-slate-600">${cat}</span>
+                    </label>
+                `;
+            });
+        }
+
+        async function editGame(event, id) {
+            event.stopPropagation();
             const game = globalData.games.find(g => g.id === id);
             if (!game) return;
             document.getElementById('editing-game-id').value = game.id;
@@ -329,6 +363,16 @@
             document.getElementById('game-html').value = game.html;
             document.getElementById('game-modal-title').innerText = "Oyunu Düzenle";
             openGameModal();
+        }
+
+        function editStudent(id) {
+            const student = globalData.students.find(s => s.id === id);
+            if (!student) return;
+            document.getElementById('editing-student-id').value = student.id;
+            document.getElementById('student-email').value = student.email;
+            document.getElementById('student-pass').value = student.password;
+            populateStudentCategoryChecklist(student.allowedCategories || []);
+            openStudentModal();
         }
 
         document.getElementById('add-game-form').onsubmit = async (e) => {
@@ -352,16 +396,28 @@
 
         document.getElementById('add-student-form').onsubmit = async (e) => {
             e.preventDefault();
+            const id = document.getElementById('editing-student-id').value;
             const email = document.getElementById('student-email').value;
             const password = document.getElementById('student-pass').value;
-            globalData.students.unshift({ id: crypto.randomUUID(), email, password, createdAt: new Date() });
+            const allowedCategories = Array.from(document.querySelectorAll('.student-category-check:checked')).map(cb => cb.value);
+
+            if (id) {
+                const index = globalData.students.findIndex(s => s.id === id);
+                if (index !== -1) {
+                    globalData.students[index] = { ...globalData.students[index], email, password, allowedCategories };
+                }
+            } else {
+                globalData.students.unshift({ id: crypto.randomUUID(), email, password, createdAt: new Date(), allowedCategories });
+            }
+
             await saveData();
             closeStudentModal();
             renderStudents();
         };
 
-        async function deleteItem(id, key) {
-            if(!confirm("Emin misiniz?")) return;
+        async function deleteItem(event, id, key) {
+            event.stopPropagation();
+            if (!confirm("Bu öğeyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")) return;
             globalData[key] = globalData[key].filter(item => item.id !== id);
             await saveData();
             if(key === 'games') renderGames(); else renderStudents();
@@ -378,15 +434,24 @@
             });
         }
 
-        function openGameModal() { document.getElementById('game-modal').classList.remove('hidden'); }
+        function openGameModal() { 
+            document.getElementById('game-modal').classList.remove('hidden'); 
+        }
         function closeGameModal() { 
             document.getElementById('game-modal').classList.add('hidden');
             document.getElementById('add-game-form').reset();
             document.getElementById('editing-game-id').value = "";
             document.getElementById('game-modal-title').innerText = "Yeni Oyun Modülü";
         }
-        function openStudentModal() { document.getElementById('student-modal').classList.remove('hidden'); }
-        function closeStudentModal() { document.getElementById('student-modal').classList.add('hidden'); document.getElementById('add-student-form').reset(); }
+        function openStudentModal() { 
+            populateStudentCategoryChecklist();
+            document.getElementById('student-modal').classList.remove('hidden'); 
+        }
+        function closeStudentModal() { 
+            document.getElementById('student-modal').classList.add('hidden'); 
+            document.getElementById('add-student-form').reset(); 
+            document.getElementById('editing-student-id').value = "";
+        }
         async function signOut() { await supabaseClient.auth.signOut(); location.reload(); }
     </script>
 </body>
