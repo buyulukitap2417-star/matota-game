@@ -627,10 +627,10 @@
             document.getElementById('add-student-form').reset();
             document.getElementById('editing-student-id').value = "";
             document.getElementById('student-modal-header').querySelector('h3').innerText = "Yeni Öğrenci";
+            populateStudentCategoryChecklist(); // Populate with empty selections
             openStudentModal();
         }
         function openStudentModal() { 
-            populateStudentCategoryChecklist();
             document.getElementById('student-modal').classList.remove('hidden'); 
         }
         function closeStudentModal() { 
