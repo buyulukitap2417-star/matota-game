@@ -15,7 +15,7 @@
         .loader { border: 3px solid #f3f3f3; border-top: 3px solid #4f46e5; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .game-card { transition: all 0.3s ease; cursor: grab; }
-        .game-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
+        .game-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); cursor: move; }
         .sortable-ghost { opacity: 0.4; background: #c7d2fe; }
     </style>
 </head>
@@ -67,14 +67,14 @@
             <div id="games-content" class="space-y-6">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
                     <div>
-                        <h2 class="text-2xl font-bold text-slate-800">Oyun Modülleri</h2>
-                        <p class="text-slate-500 text-sm">Oyunların sırasını oklar yardımıyla değiştirebilirsiniz.</p>
+                        <h2 id="games-view-title" class="text-2xl font-bold text-slate-800">Oyun Modülleri</h2>
+                        <p class="text-slate-500 text-sm">Oyunları sürükleyerek sıralayabilirsiniz.</p>
                     </div>
                     <button onclick="openGameModal()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold shadow-md transition w-full md:w-auto">
                         <i class="fas fa-plus mr-2"></i> Yeni Oyun Ekle
                     </button>
                 </div>
-                <div id="games-grid" class="grid md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+                <div id="games-grid" class="grid md:grid-cols-2 lg:grid-cols-4 gap-6"></div>
             </div>
 
             <!-- Categories Tab Content -->
@@ -82,7 +82,7 @@
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
                     <h2 class="text-2xl font-bold text-slate-800 mb-4">Kategori Yönetimi</h2>
                     <div class="flex gap-3">
-                        <input type="text" id="new-category-name" class="flex-grow p-3 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Yeni kategori adı (örn: Geometri)">
+                        <input type="text" id="new-category-name" class="flex-grow p-3 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Kategori Adı (örn: Matematik > Sayılar)">
                         <button onclick="addCategory()" class="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 transition">Ekle</button>
                     </div>
                 </div>
@@ -179,6 +179,7 @@
         let authMode = 'login';
         let globalData = { games: [], students: [], categories: [] };
         let sortable = null;
+        let currentCategoryView = null;
 
         window.onload = async () => {
             const { data: { session } } = await supabaseClient.auth.getSession();
@@ -215,11 +216,51 @@
             globalData = data?.data || { games: [], students: [], categories: [] };
             if (!globalData.categories) globalData.categories = [];
             
-            renderGames();
+            renderGameView();
             renderStudents();
             renderCategories();
             updateCategoryDropdown();
-            initSortable();
+        }
+
+        function renderGameView(category = null) {
+            currentCategoryView = category;
+            const grid = document.getElementById('games-grid');
+            const title = document.getElementById('games-view-title');
+            grid.innerHTML = '';
+
+            if (category) {
+                // Belirli bir kategorideki oyunları göster
+                title.innerHTML = `<button onclick="renderGameView()" class="text-indigo-500 hover:underline"><i class="fas fa-arrow-left mr-2"></i>Kategoriler</button> / ${category}`;
+                const gamesInCategory = globalData.games.filter(g => g.category === category);
+                if (gamesInCategory.length === 0) {
+                    grid.innerHTML = '<p class="col-span-full text-center py-10 text-gray-400 italic">Bu kategoride henüz oyun yok.</p>';
+                } else {
+                    gamesInCategory.forEach(game => grid.appendChild(createGameCard(game)));
+                }
+                initSortable(true);
+            } else {
+                // Kategori klasörlerini göster
+                title.innerText = 'Oyun Modülleri';
+                const categories = ['Genel', ...globalData.categories];
+                categories.forEach(cat => {
+                    const gameCount = globalData.games.filter(g => (g.category || 'Genel') === cat).length;
+                    const folder = document.createElement('div');
+                    folder.className = "bg-indigo-50 p-6 rounded-2xl shadow-sm border border-indigo-100 flex flex-col justify-between h-full cursor-pointer hover:bg-indigo-100 hover:shadow-md transition-all";
+                    folder.onclick = () => renderGameView(cat);
+                    folder.innerHTML = `
+                        <div class="flex justify-between items-start">
+                            <i class="fas fa-folder text-4xl text-indigo-400"></i>
+                            <span class="font-bold text-indigo-600 bg-white px-3 py-1 rounded-full">${gameCount}</span>
+                        </div>
+                        <h4 class="font-bold text-lg mt-4 text-indigo-800">${cat}</h4>
+                    `;
+                    grid.appendChild(folder);
+                });
+                if (sortable) {
+                    sortable.destroy();
+                    sortable = null;
+                }
+            }
         }
 
         function renderGames() {
@@ -227,34 +268,38 @@
             grid.innerHTML = globalData.games.length ? '' : '<p class="col-span-full text-center py-10 text-gray-400 italic">Henüz oyun eklenmemiş.</p>';
             
             globalData.games.forEach(game => {
-                const div = document.createElement('div');
-                div.className = "game-card bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between h-full";
-                div.dataset.id = game.id;
-                div.innerHTML = `
-                    <div>
-                        <div class="flex justify-between items-start mb-4">
-                            <div class="flex items-center gap-2">
-                                <i class="fas fa-grip-vertical text-slate-300"></i>
-                                <span class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold">${game.category || 'Genel'}</span>
-                            </div>
-                        </div>
-                        <h4 class="font-bold text-lg mb-4 text-slate-800">${game.title}</h4>
-                    </div>
-                    <div class="flex justify-between items-center pt-4 border-t border-slate-50">
-                         <button onclick="editGame(event, '${game.id}')" class="text-indigo-600 font-bold hover:underline text-sm"><i class="fas fa-edit mr-1"></i> Düzenle</button>
-                         <button onclick="deleteItem(event, '${game.id}', 'games')" class="text-red-400 hover:text-red-600 transition p-2"><i class="fas fa-trash-alt"></i></button>
-                    </div>
-                `;
-                grid.appendChild(div);
+                grid.appendChild(createGameCard(game));
             });
+            initSortable(true);
         }
 
-        function initSortable() {
+        function createGameCard(game) {
+            const div = document.createElement('div');
+            div.className = "game-card bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between h-full";
+            div.dataset.id = game.id;
+            div.innerHTML = `
+                <div>
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-grip-vertical text-slate-300"></i>
+                            <span class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold">${game.category || 'Genel'}</span>
+                        </div>
+                    </div>
+                    <h4 class="font-bold text-lg mb-4 text-slate-800">${game.title}</h4>
+                </div>
+                <div class="flex justify-between items-center pt-4 border-t border-slate-50">
+                     <button onclick="editGame(event, '${game.id}')" class="text-indigo-600 font-bold hover:underline text-sm"><i class="fas fa-edit mr-1"></i> Düzenle</button>
+                     <button onclick="deleteItem(event, '${game.id}', 'games')" class="text-red-400 hover:text-red-600 transition p-2"><i class="fas fa-trash-alt"></i></button>
+                </div>
+            `;
+            return div;
+        }
+
+        function initSortable(isGameGrid) {
             const grid = document.getElementById('games-grid');
             if (sortable) sortable.destroy();
-            sortable = new Sortable(grid, {
-                animation: 150,
-                ghostClass: 'sortable-ghost',
+            if (!isGameGrid) return;
+            sortable = new Sortable(grid, { animation: 150, ghostClass: 'sortable-ghost',
                 onEnd: async (evt) => {
                     const newOrder = Array.from(evt.to.children).map(item => item.dataset.id);
                     globalData.games.sort((a, b) => newOrder.indexOf(a.id) - newOrder.indexOf(b.id));
@@ -269,9 +314,13 @@
             
             globalData.categories.forEach(cat => {
                 const div = document.createElement('div');
+                const isSubCategory = cat.includes('>');
+                const padding = isSubCategory ? 'pl-8' : '';
+                const displayName = isSubCategory ? cat.split('>')[1].trim() : cat;
+                const icon = isSubCategory ? '<i class="fas fa-level-up-alt fa-rotate-90 mr-2 text-slate-400"></i>' : '';
                 div.className = "bg-white p-4 rounded-xl border flex justify-between items-center shadow-sm";
                 div.innerHTML = `
-                    <span class="font-bold text-slate-700">${cat}</span>
+                    <span class="font-bold text-slate-700 ${padding}">${icon}${displayName}</span>
                     <button onclick="deleteCategory('${cat}')" class="text-red-300 hover:text-red-600"><i class="fas fa-times"></i></button>
                 `;
                 list.appendChild(div);
@@ -299,6 +348,7 @@
             }
             
             globalData.categories.push(name);
+            globalData.categories.sort();
             input.value = "";
             await saveData();
             renderCategories();
@@ -391,7 +441,7 @@
 
             await saveData();
             closeGameModal();
-            renderGames();
+            renderGameView(currentCategoryView);
         };
 
         document.getElementById('add-student-form').onsubmit = async (e) => {
@@ -420,7 +470,7 @@
             if (!confirm("Bu öğeyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")) return;
             globalData[key] = globalData[key].filter(item => item.id !== id);
             await saveData();
-            if(key === 'games') renderGames(); else renderStudents();
+            if(key === 'games') renderGameView(currentCategoryView); else renderStudents();
         }
 
         async function saveData() {
